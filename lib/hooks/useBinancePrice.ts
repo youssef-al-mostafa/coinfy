@@ -22,7 +22,7 @@ export function useBinancePrice() {
   }, []);
 
   const { lastJsonMessage, readyState } = useWebSocket<Binance24hrTicker>(
-    shouldConnect ? config.binance.wsUrl : null,
+    shouldConnect ? (config.binance.wsUrl || null) : null,
     {
       shouldReconnect: () => true,
       reconnectInterval: WEBSOCKET_CONFIG.reconnectInterval,
