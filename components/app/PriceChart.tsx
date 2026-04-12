@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   AreaChart,
   Area,
@@ -12,8 +12,10 @@ import {
 } from "recharts";
 import { useBinanceKlines } from "@/lib/hooks/useBinanceKlines";
 import { formatCurrency } from "@/lib/utils";
+import { TIMEFRAMES, CHART_CONFIG, ANIMATION_DURATIONS } from "@/lib/constants";
+import { CHART_COLORS } from "@/lib/constants/colors";
 
-type TimeInterval = "1h" | "4h" | "1d" | "1w";
+type TimeInterval = typeof TIMEFRAMES[number]["value"];
 
 interface PriceChartProps {
   targetPrice: number;
@@ -21,18 +23,100 @@ interface PriceChartProps {
   direction: "bullish" | "bearish";
 }
 
-const TIME_INTERVALS: { value: TimeInterval; label: string }[] = [
-  { value: "1h", label: "1H" },
-  { value: "4h", label: "4H" },
-  { value: "1d", label: "1D" },
-  { value: "1w", label: "1W" },
-];
-
 export function PriceChart({ targetPrice, currentPrice, direction }: PriceChartProps) {
   const [selectedInterval, setSelectedInterval] = useState<TimeInterval>("1h");
   const { chartData, isLoading, error } = useBinanceKlines(selectedInterval);
 
-  const chartColor = direction === "bullish" ? "#10b981" : "#ef4444";
+  const chartColor = useMemo(
+    () => (direction === "bullish" ? CHART_COLORS.bullish : CHART_COLORS.bearish),
+    [direction]
+  );
+
+  const { prices, dataMax, dataMin } = useMemo(() => {
+    if (chartData.length === 0) {
+      return { prices: [], dataMax: 0, dataMin: 0 };
+    }
+    const priceArray = chartData.map((d) => d.price);
+    return {
+      prices: priceArray,
+      dataMax: Math.max(...priceArray),
+      dataMin: Math.min(...priceArray),
+    };
+  }, [chartData]);
+
+  const targetIsInRange = useMemo(
+    () =>
+      dataMax > 0 &&
+      targetPrice <= dataMax * (1 + CHART_CONFIG.targetRangeTolerance) &&
+      targetPrice >= dataMin * (1 - CHART_CONFIG.targetRangeTolerance),
+    [targetPrice, dataMax, dataMin]
+  );
+
+  const { yDomain, showTargetLine } = useMemo(() => {
+    if (dataMax === 0 || dataMin === 0) {
+      return { yDomain: [0, 100] as [number, number], showTargetLine: false };
+    }
+
+    if (targetIsInRange) {
+      const minPrice = Math.min(dataMin, targetPrice, currentPrice);
+      const maxPrice = Math.max(dataMax, targetPrice, currentPrice);
+      const padding = (maxPrice - minPrice) * CHART_CONFIG.yAxisPadding;
+      return {
+        yDomain: [Math.floor(minPrice - padding), Math.ceil(maxPrice + padding)] as [number, number],
+        showTargetLine: true,
+      };
+    }
+
+    const padding = (dataMax - dataMin) * CHART_CONFIG.minYAxisPadding;
+    return {
+      yDomain: [Math.floor(dataMin - padding), Math.ceil(dataMax + padding)] as [number, number],
+      showTargetLine: false,
+    };
+  }, [targetIsInRange, dataMin, dataMax, targetPrice, currentPrice]);
+
+  const distanceToTarget = useMemo(
+    () => Math.abs(targetPrice - currentPrice),
+    [targetPrice, currentPrice]
+  );
+
+  const percentAway = useMemo(
+    () => ((distanceToTarget / currentPrice) * 100).toFixed(1),
+    [distanceToTarget, currentPrice]
+  );
+
+  const directionArrow = useMemo(
+    () => (direction === "bullish" ? "↑" : "↓"),
+    [direction]
+  );
+
+  const tickInterval = useMemo(() => {
+    const tickCount =
+      selectedInterval === "1h" || selectedInterval === "4h" ? 6 : 5;
+    return Math.floor(chartData.length / tickCount);
+  }, [selectedInterval, chartData.length]);
+
+  const handleIntervalChange = useCallback((interval: TimeInterval) => {
+    setSelectedInterval(interval);
+  }, []);
+
+  const renderTooltip = useCallback(
+    ({ active, payload }: any) => {
+      if (active && payload && payload.length) {
+        return (
+          <div className="rounded-lg bg-black/80 backdrop-blur-xl border border-white/20 px-3 py-2 shadow-xl">
+            <p className="text-xs text-gray-400 mb-1">
+              {payload[0].payload.time}
+            </p>
+            <p className="text-sm font-bold text-white">
+              {formatCurrency(payload[0].value as number, 2)}
+            </p>
+          </div>
+        );
+      }
+      return null;
+    },
+    []
+  );
 
   if (error) {
     return (
@@ -53,41 +137,20 @@ export function PriceChart({ targetPrice, currentPrice, direction }: PriceChartP
     );
   }
 
-  const prices = chartData.map((d) => d.price);
-  const dataMax = Math.max(...prices);
-  const dataMin = Math.min(...prices);
-
-  const targetIsInRange = targetPrice <= dataMax * 1.15 && targetPrice >= dataMin * 0.85;
-
-  let yDomain: [number, number];
-  let showTargetLine = false;
-
-  if (targetIsInRange) {
-    const minPrice = Math.min(dataMin, targetPrice, currentPrice);
-    const maxPrice = Math.max(dataMax, targetPrice, currentPrice);
-    const padding = (maxPrice - minPrice) * 0.15;
-    yDomain = [Math.floor(minPrice - padding), Math.ceil(maxPrice + padding)];
-    showTargetLine = true;
-  } else {
-    const padding = (dataMax - dataMin) * 0.1;
-    yDomain = [Math.floor(dataMin - padding), Math.ceil(dataMax + padding)];
-    showTargetLine = false;
-  }
-
-  const distanceToTarget = Math.abs(targetPrice - currentPrice);
-  const percentAway = ((distanceToTarget / currentPrice) * 100).toFixed(1);
-  const directionArrow = direction === "bullish" ? "↑" : "↓";
-
-  const tickCount = selectedInterval === "1h" || selectedInterval === "4h" ? 6 : 5;
-  const tickInterval = Math.floor(chartData.length / tickCount);
-
   return (
     <div className="flex h-full w-full flex-col gap-3">
-      <div className="flex shrink-0 gap-2 rounded-lg bg-white/5 backdrop-blur-md p-1 border border-white/10">
-        {TIME_INTERVALS.map((interval) => (
+      <div
+        className="flex shrink-0 gap-2 rounded-lg bg-white/5 backdrop-blur-md p-1 border border-white/10"
+        role="tablist"
+        aria-label="Chart timeframe selector"
+      >
+        {TIMEFRAMES.map((interval) => (
           <button
             key={interval.value}
-            onClick={() => setSelectedInterval(interval.value)}
+            onClick={() => handleIntervalChange(interval.value)}
+            role="tab"
+            aria-selected={selectedInterval === interval.value}
+            aria-label={`${interval.label} timeframe`}
             className={`
               px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200
               ${
@@ -118,11 +181,21 @@ export function PriceChart({ targetPrice, currentPrice, direction }: PriceChartP
           <AreaChart
             data={chartData}
             margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+            role="img"
+            aria-label={`Bitcoin price chart showing ${direction} trend with target of ${formatCurrency(targetPrice, 0)}`}
           >
             <defs>
               <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={chartColor} stopOpacity={0.3} />
-                <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
+                <stop
+                  offset={CHART_CONFIG.gradientStops.start.offset}
+                  stopColor={chartColor}
+                  stopOpacity={CHART_CONFIG.gradientStops.start.opacity}
+                />
+                <stop
+                  offset={CHART_CONFIG.gradientStops.end.offset}
+                  stopColor={chartColor}
+                  stopOpacity={CHART_CONFIG.gradientStops.end.opacity}
+                />
               </linearGradient>
             </defs>
 
@@ -143,30 +216,14 @@ export function PriceChart({ targetPrice, currentPrice, direction }: PriceChartP
               width={70}
             />
 
-            <Tooltip
-              content={({ active, payload }) => {
-                if (active && payload && payload.length) {
-                  return (
-                    <div className="rounded-lg bg-black/80 backdrop-blur-xl border border-white/20 px-3 py-2 shadow-xl">
-                      <p className="text-xs text-gray-400 mb-1">
-                        {payload[0].payload.time}
-                      </p>
-                      <p className="text-sm font-bold text-white">
-                        {formatCurrency(payload[0].value as number, 2)}
-                      </p>
-                    </div>
-                  );
-                }
-                return null;
-              }}
-            />
+            <Tooltip content={renderTooltip} />
 
             {showTargetLine && (
               <ReferenceLine
                 y={targetPrice}
                 stroke={chartColor}
                 strokeDasharray="6 4"
-                strokeWidth={2}
+                strokeWidth={CHART_CONFIG.targetLineStrokeWidth}
                 label={{
                   value: `Target ${formatCurrency(targetPrice, 0)}`,
                   position: "insideTopRight",
@@ -182,9 +239,9 @@ export function PriceChart({ targetPrice, currentPrice, direction }: PriceChartP
               type="monotone"
               dataKey="price"
               stroke={chartColor}
-              strokeWidth={2.5}
+              strokeWidth={CHART_CONFIG.strokeWidth}
               fill="url(#priceGradient)"
-              animationDuration={500}
+              animationDuration={ANIMATION_DURATIONS.chartAnimation}
             />
           </AreaChart>
         </ResponsiveContainer>

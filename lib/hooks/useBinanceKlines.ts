@@ -3,17 +3,11 @@
 import { useState, useEffect } from "react";
 import { BinanceKline, ChartDataPoint } from "@/lib/types";
 import { formatChartTime } from "@/lib/utils";
+import { TIMEFRAMES } from "@/lib/constants";
 
 const BINANCE_API_URL = "https://api.binance.com/api/v3/klines";
 
-type TimeInterval = "1h" | "4h" | "1d" | "1w";
-
-const INTERVAL_CONFIG = {
-  "1h": { interval: "1h", limit: 48 },
-  "4h": { interval: "4h", limit: 48 },
-  "1d": { interval: "1d", limit: 30 },
-  "1w": { interval: "1w", limit: 20 },
-};
+type TimeInterval = typeof TIMEFRAMES[number]["value"];
 
 export function useBinanceKlines(selectedInterval: TimeInterval = "1h") {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
@@ -21,15 +15,23 @@ export function useBinanceKlines(selectedInterval: TimeInterval = "1h") {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const abortController = new AbortController();
+
     const fetchKlines = async () => {
       setIsLoading(true);
       setError(null);
 
       try {
-        const config = INTERVAL_CONFIG[selectedInterval];
+        const config = TIMEFRAMES.find(tf => tf.value === selectedInterval);
+        if (!config) {
+          throw new Error("Invalid interval");
+        }
+
         const url = `${BINANCE_API_URL}?symbol=BTCUSDT&interval=${config.interval}&limit=${config.limit}`;
 
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          signal: abortController.signal,
+        });
 
         if (!response.ok) {
           throw new Error(`Failed to fetch klines: ${response.statusText}`);
@@ -39,13 +41,15 @@ export function useBinanceKlines(selectedInterval: TimeInterval = "1h") {
 
         const formattedData: ChartDataPoint[] = data.map((kline) => ({
           timestamp: kline[0],
-          price: parseFloat(kline[4]), // Close price
+          price: parseFloat(kline[4]),
           time: formatChartTime(kline[0], selectedInterval),
         }));
 
         setChartData(formattedData);
       } catch (err) {
-        console.error("Error fetching klines:", err);
+        if (err instanceof Error && err.name === "AbortError") {
+          return;
+        }
         setError(err instanceof Error ? err.message : "Failed to fetch chart data");
       } finally {
         setIsLoading(false);
@@ -53,6 +57,10 @@ export function useBinanceKlines(selectedInterval: TimeInterval = "1h") {
     };
 
     fetchKlines();
+
+    return () => {
+      abortController.abort();
+    };
   }, [selectedInterval]);
 
   return {

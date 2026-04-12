@@ -34,3 +34,8 @@ export const COLORS = {
     bearish: "rgba(239, 68, 68, 0.20)",
   },
 } as const;
+
+export const CHART_COLORS = {
+  bullish: "#10b981",
+  bearish: "#ef4444",
+} as const;

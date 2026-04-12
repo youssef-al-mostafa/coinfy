@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import useWebSocket, { ReadyState } from "react-use-websocket";
 import { Binance24hrTicker, PriceStats } from "@/lib/types";
 import { config } from "@/lib/config";
+import { WEBSOCKET_CONFIG } from "@/lib/constants";
 
 export function useBinancePrice() {
   const [stats, setStats] = useState<PriceStats>({
@@ -14,7 +15,6 @@ export function useBinancePrice() {
     low24h: 0,
   });
 
-  const prevPriceRef = useRef<number>(0);
   const [shouldConnect, setShouldConnect] = useState(false);
 
   useEffect(() => {
@@ -25,42 +25,25 @@ export function useBinancePrice() {
     shouldConnect ? config.binance.wsUrl : null,
     {
       shouldReconnect: () => true,
-      reconnectInterval: 3000,
-      reconnectAttempts: 10,
+      reconnectInterval: WEBSOCKET_CONFIG.reconnectInterval,
+      reconnectAttempts: WEBSOCKET_CONFIG.reconnectAttempts,
     }
   );
 
   useEffect(() => {
     if (lastJsonMessage) {
-      const currentPrice = parseFloat(lastJsonMessage.c);
-      const priceChange24h = parseFloat(lastJsonMessage.p);
-      const priceChangePercent24h = parseFloat(lastJsonMessage.P);
-      const high24h = parseFloat(lastJsonMessage.h);
-      const low24h = parseFloat(lastJsonMessage.l);
-
-      prevPriceRef.current = stats.currentPrice;
-
       setStats({
-        currentPrice,
-        priceChange24h,
-        priceChangePercent24h,
-        high24h,
-        low24h,
+        currentPrice: parseFloat(lastJsonMessage.c),
+        priceChange24h: parseFloat(lastJsonMessage.p),
+        priceChangePercent24h: parseFloat(lastJsonMessage.P),
+        high24h: parseFloat(lastJsonMessage.h),
+        low24h: parseFloat(lastJsonMessage.l),
       });
     }
-  }, [lastJsonMessage, stats.currentPrice]);
-
-  const connectionStatus = {
-    [ReadyState.CONNECTING]: "Connecting",
-    [ReadyState.OPEN]: "Connected",
-    [ReadyState.CLOSING]: "Closing",
-    [ReadyState.CLOSED]: "Disconnected",
-    [ReadyState.UNINSTANTIATED]: "Uninstantiated",
-  }[readyState];
+  }, [lastJsonMessage]);
 
   return {
     ...stats,
     isConnected: readyState === ReadyState.OPEN,
-    connectionStatus,
   };
 }
