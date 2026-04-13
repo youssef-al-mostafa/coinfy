@@ -136,7 +136,7 @@ export function TradeIdeaCard({ tradeIdea: initialTradeIdea }: TradeIdeaCardProp
   return (
     <div
       className={`
-        relative w-full max-w-150 overflow-hidden rounded-[20px]
+        relative w-full max-w-[600px] overflow-hidden rounded-[20px]
         border ${borderColor} bg-white/5 backdrop-blur-xl
         p-5 ${glowColor}
       `}
@@ -261,7 +261,7 @@ export function TradeIdeaCard({ tradeIdea: initialTradeIdea }: TradeIdeaCardProp
 
               <button
                 onClick={handleApplySettings}
-                className="w-full rounded-lg bg-linear-to-r from-emerald-500 to-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:scale-[1.02]"
+                className="w-full rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:scale-[1.02]"
                 aria-label="Apply trade settings"
               >
                 Apply
@@ -326,7 +326,7 @@ export function TradeIdeaCard({ tradeIdea: initialTradeIdea }: TradeIdeaCardProp
         </div>
       )}
 
-      <div className="mb-4 h-50">
+      <div className="mb-4 h-[200px]">
         <PriceChart
           targetPrice={targetPrice}
           currentPrice={currentPrice}
@@ -372,8 +372,8 @@ export function TradeIdeaCard({ tradeIdea: initialTradeIdea }: TradeIdeaCardProp
       <div
         className={`mb-4 flex items-center justify-between rounded-lg border px-4 py-2.5 backdrop-blur-sm ${
           direction === "bullish"
-            ? "bg-linear-to-r from-emerald-500/15 to-emerald-600/10 border-emerald-500/30"
-            : "bg-linear-to-r from-red-500/15 to-red-600/10 border-red-500/30"
+            ? "bg-gradient-to-r from-emerald-500/15 to-emerald-600/10 border-emerald-500/30"
+            : "bg-gradient-to-r from-red-500/15 to-red-600/10 border-red-500/30"
         }`}
         role="status"
         aria-label={`Potential return: ${formatPercentage(calculatedReturn, true)}`}
@@ -398,8 +398,8 @@ export function TradeIdeaCard({ tradeIdea: initialTradeIdea }: TradeIdeaCardProp
           hover:scale-[1.02] hover:shadow-lg
           active:scale-[0.97]
           ${direction === "bullish"
-            ? "bg-linear-to-r from-emerald-500 to-emerald-600 hover:shadow-emerald-500/25"
-            : "bg-linear-to-r from-red-500 to-red-600 hover:shadow-red-500/25"
+            ? "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:shadow-emerald-500/25"
+            : "bg-gradient-to-r from-red-500 to-red-600 hover:shadow-red-500/25"
           }
         `}
         aria-label={`Execute ${direction} trade targeting ${formatCurrency(targetPrice, 0)}`}
