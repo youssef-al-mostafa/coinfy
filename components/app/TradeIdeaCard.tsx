@@ -326,7 +326,7 @@ export function TradeIdeaCard({ tradeIdea: initialTradeIdea }: TradeIdeaCardProp
         </div>
       )}
 
-      <div className="mb-4 h-[200px]">
+      <div className="mb-4 h-[220px]">
         <PriceChart
           targetPrice={targetPrice}
           currentPrice={currentPrice}

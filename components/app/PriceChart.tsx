@@ -176,8 +176,8 @@ export function PriceChart({ targetPrice, currentPrice, direction }: PriceChartP
         </div>
       )}
 
-      <div className="flex-1 w-full min-h-0">
-        <ResponsiveContainer width="100%" height="100%" minHeight={150}>
+      <div className="w-full h-[150px]">
+        <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={chartData}
             margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
